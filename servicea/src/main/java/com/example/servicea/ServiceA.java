@@ -55,9 +55,11 @@ class ServiceAController {
 	}
 
 	@GetMapping("/ping")
-	public ServiceAResponse ping() {
+	public ServiceAResponse ping() throws IOException {
 		Span span = tracer.buildSpan("ping").start();
-		ServiceAResponse r = new ServiceAResponse(ServiceA.serviceName);
+		tracer.activateSpan(span);
+		String response = makeRequest("http://localhost:8082/ping");
+		ServiceAResponse r = new ServiceAResponse(ServiceA.serviceName + " -> " + response);
 		span.finish();
 		return r;
 	}
