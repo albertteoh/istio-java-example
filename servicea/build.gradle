@@ -12,19 +12,8 @@ repositories {
 	mavenCentral()
 }
 
-def v_opentracing = '0.33.0'
-def v_jaegertracing = '1.4.0'
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
-	compile "io.opentracing:opentracing-api:${v_opentracing}"
-	compile "io.opentracing:opentracing-mock:${v_opentracing}"
-	compile "io.opentracing:opentracing-util:${v_opentracing}"
-	compile "io.jaegertracing:jaeger-client:${v_jaegertracing}"
-
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-}
-
-test {
-	useJUnitPlatform()
+	implementation 'com.squareup.okhttp3:okhttp:3.14.6'
 }

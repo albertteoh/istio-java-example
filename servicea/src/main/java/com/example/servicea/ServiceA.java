@@ -1,25 +1,48 @@
 package com.example.servicea;
 
-import io.jaegertracing.Configuration;
-import io.jaegertracing.Configuration.SamplerConfiguration;
-import io.jaegertracing.Configuration.ReporterConfiguration;
-import io.jaegertracing.internal.samplers.ConstSampler;
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import io.opentracing.propagation.Format;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.filter.CommonsRequestLoggingFilter;
 
 import java.io.IOException;
+import java.util.Map;
 
 @SpringBootApplication
 public class ServiceA {
+	// HTTP headers to propagate for distributed tracing are documented at
+	// https://istio.io/docs/tasks/telemetry/distributed-tracing/overview/#trace-context-propagation
+	final static String[] headersToPropagate = {
+			// All applications should propagate x-request-id. This header is
+			// included in access log statements and is used for consistent trace
+			// sampling and log sampling decisions in Istio.
+			"x-request-id",
+
+			// Lightstep tracing header. Propagate this if you use lightstep tracing
+			// in Istio (see
+			// https://istio.io/latest/docs/tasks/observability/distributed-tracing/lightstep/)
+			// Note: this should probably be changed to use B3 or W3C TRACE_CONTEXT.
+			// Lightstep recommends using B3 or TRACE_CONTEXT and most application
+			// libraries from lightstep do not support x-ot-span-context.
+			"x-ot-span-context",
+
+			// b3 trace headers. Compatible with Zipkin, OpenCensusAgent, and
+			// Stackdriver Istio configurations. Commented out since they are
+			// propagated by the OpenTracing tracer above.
+			"x-b3-traceid",
+			"x-b3-spanid",
+			"x-b3-parentspanid",
+			"x-b3-sampled",
+			"x-b3-flags",
+	};
 
 	static final String serviceName = "service-a";
 
@@ -28,19 +51,14 @@ public class ServiceA {
 	}
 
 	@Bean
-	public Tracer tracer() {
-		SamplerConfiguration samplerConfig = SamplerConfiguration.fromEnv()
-				.withType(ConstSampler.TYPE)
-				.withParam(1);
-
-		ReporterConfiguration reporterConfig = ReporterConfiguration.fromEnv()
-				.withLogSpans(true);
-
-		Configuration config = new Configuration(serviceName)
-				.withSampler(samplerConfig)
-				.withReporter(reporterConfig);
-
-		return config.getTracer();
+	public CommonsRequestLoggingFilter requestLoggingFilter() {
+		CommonsRequestLoggingFilter loggingFilter = new CommonsRequestLoggingFilter();
+		loggingFilter.setIncludeClientInfo(true);
+		loggingFilter.setIncludeQueryString(true);
+		loggingFilter.setIncludePayload(true);
+		loggingFilter.setIncludeHeaders(true);
+		loggingFilter.setMaxPayloadLength(64000);
+		return loggingFilter;
 	}
 }
 
@@ -48,50 +66,35 @@ public class ServiceA {
 class ServiceAController {
 	OkHttpClient client = new OkHttpClient();
 
-	private final Tracer tracer;
+	@Value("${OUTBOUND_HOST:localhost}")
+	private String outboundHost;
 
-	public ServiceAController(Tracer tracer) {
-		this.tracer = tracer;
-	}
+	@Value("${OUTBOUND_PORT:8082}")
+	private String outboundPort;
 
 	@GetMapping("/ping")
-	public ServiceAResponse ping() throws IOException {
-		Span span = tracer.buildSpan("ping").start();
-		tracer.activateSpan(span);
-		String response = makeRequest("http://localhost:8082/ping");
-		ServiceAResponse r = new ServiceAResponse(ServiceA.serviceName + " -> " + response);
-		span.finish();
+	public PingResponse ping(@RequestHeader Map<String, String> headers) throws IOException {
+		String url = String.format("http://%s:%s/ping", outboundHost, outboundPort);
+		String response = makeRequest(url, headers);
+		PingResponse r = new PingResponse(ServiceA.serviceName + " -> " + response);
 		return r;
 	}
 
-	private String makeRequest(String url) throws IOException {
-		Request.Builder requestBuilder = new Request.Builder()
-				.url(url);
+	private String makeRequest(String url, Map<String, String> headers) throws IOException {
+		Request.Builder requestBuilder = new Request.Builder().url(url);
 
-		tracer.inject(
-				tracer.activeSpan().context(),
-				Format.Builtin.HTTP_HEADERS,
-				new RequestBuilderCarrier(requestBuilder)
-
-		);
-
-		Request request = requestBuilder
-				.build();
+		for (String header : ServiceA.headersToPropagate) {
+			String value = headers.get(header);
+			if (value != null) {
+				requestBuilder.header(header,value);
+			}
+		}
+		Request request = requestBuilder.build();
 
 		try (Response response = client.newCall(request).execute()) {
-			return response.body().string();
+			ObjectMapper objectMapper = new ObjectMapper();
+			return objectMapper.readValue(response.body().string(), PingResponse.class).getResponse();
 		}
 	}
 }
 
-class ServiceAResponse {
-	private final String response;
-
-	public ServiceAResponse(String response) {
-		this.response = response;
-	}
-
-	public String getResponse() {
-		return this.response;
-	}
-}

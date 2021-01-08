@@ -1,3 +1,4 @@
 rootProject.name = 'demo'
 include 'servicea'
 include 'serviceb'
+include 'lib'
