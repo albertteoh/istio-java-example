@@ -6,13 +6,13 @@ understand tradeoffs between solutions. Istio is one such solution, providing th
 This example consists of two simple Java microservices where `service-a` calls `service-b`. Both services expose a `/ping` endpoint,
 that are instrumented using Istio.
 
-For an example of manual instrumentation with Jaeger, please see: [albertteoh/jaeger-java-example](https://github.com/albertteoh/jaeger-java-example).
+For an example of manual instrumentation with Jaeger, please see: [albertteoh/jaeger-go-example](https://github.com/albertteoh/jaeger-go-example).
 
 The key takeaways are:
 - There is still a need for code changes to [propagate context](https://istio.io/latest/faq/distributed-tracing/#how-to-support-tracing)
 to allow correlating inbound with outbound calls.
 - The code changes are fairly minimal and involve copying specific headers (Zipkin headers in the case of Istio) from inbound to outbound HTTP requests. "Leaf" services do not require any code changes, just services making outbound calls.
-- One can choose to leverage the [OpenTracing API](https://opentracing.io/) and use an implementing tracer like [Jaeger](http://jaegertracing.io/docs/latest), or implement their own logic to do so. In this example, the former approach of leveraging OpenTracing APIs is used.
+- One can choose to leverage the [OpenTracing API](https://opentracing.io/) and use an implementing tracer like [Jaeger](http://jaegertracing.io/docs/latest), or implement their own logic to do so. In this example, the latter approach of manually copying HTTP headers is taken.
 
 Feedback and improvements (via PRs) are most welcome!
 
