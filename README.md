@@ -43,7 +43,7 @@ $ curl -w '\n' http://localhost:80/ping
 
 ## Validate
 
-Should see `service-a -> service-b` on STDOUT.
+Should see `{"response":"service-a -> service-b"}` on STDOUT.
 
 The script will open Jaeger in a browser tab where you can select `service-a.default` from the "Service" dropdown and click the "Find Traces" button.
 
