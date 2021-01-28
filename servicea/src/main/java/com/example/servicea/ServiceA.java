@@ -26,17 +26,8 @@ public class ServiceA {
 			// sampling and log sampling decisions in Istio.
 			"x-request-id",
 
-			// Lightstep tracing header. Propagate this if you use lightstep tracing
-			// in Istio (see
-			// https://istio.io/latest/docs/tasks/observability/distributed-tracing/lightstep/)
-			// Note: this should probably be changed to use B3 or W3C TRACE_CONTEXT.
-			// Lightstep recommends using B3 or TRACE_CONTEXT and most application
-			// libraries from lightstep do not support x-ot-span-context.
-			"x-ot-span-context",
-
 			// b3 trace headers. Compatible with Zipkin, OpenCensusAgent, and
-			// Stackdriver Istio configurations. Commented out since they are
-			// propagated by the OpenTracing tracer above.
+			// Stackdriver Istio configurations.
 			"x-b3-traceid",
 			"x-b3-spanid",
 			"x-b3-parentspanid",
